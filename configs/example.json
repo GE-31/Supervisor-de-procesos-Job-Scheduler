@@ -1,0 +1,58 @@
+{
+  "address": ":8090",
+  "log_dir": "logs",
+  "grace_period": "3s",
+  "backoff": {
+    "base": "1s",
+    "factor": 2,
+    "max": "15s",
+    "max_retries": 5
+  },
+  "processes": [
+    {
+      "name": "hello",
+      "command": "./bin/hello",
+      "args": [],
+      "restart": "never",
+      "workdir": "."
+    },
+    {
+      "name": "fail",
+      "command": "./bin/fail",
+      "args": [],
+      "restart": "on-failure",
+      "workdir": "."
+    },
+    {
+      "name": "infinite",
+      "command": "./bin/infinite",
+      "args": [],
+      "restart": "always",
+      "workdir": "."
+    },
+    {
+      "name": "orders-api",
+      "command": "/home/geordy/orders-api/bin/orders-api",
+      "args": [],
+      "restart": "on-failure",
+      "workdir": "/home/geordy/orders-api",
+      "max_retries": 5
+    },
+    {
+      "name": "orders-worker",
+      "command": "./bin/orders-worker",
+      "args": [],
+      "restart": "on-failure",
+      "workdir": ".",
+      "max_retries": 5
+    },
+    {
+      "name": "orders-web",
+      "command": "./bin/orders-web",
+      "args": [],
+      "restart": "on-failure",
+      "workdir": ".",
+      "max_retries": 5
+    }
+  ]
+}

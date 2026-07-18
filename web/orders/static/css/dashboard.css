@@ -1,0 +1,20 @@
+/* Ajustes finos exclusivos de la página de dashboard, más allá del sistema
+   de componentes reutilizable en components.css. */
+
+#estimate-total {
+  transition: color 0.15s ease;
+}
+
+.conn-card:first-child .conn-indicator {
+  background: var(--color-success);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+    border-top-color: var(--color-muted);
+  }
+  .toast {
+    animation: none;
+  }
+}

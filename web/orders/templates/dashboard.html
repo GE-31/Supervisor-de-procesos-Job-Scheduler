@@ -1,0 +1,248 @@
+{{/*
+  Página única del dashboard de orders-web.
+
+  Decisión de Atomic Design: los átomos (botones, badges, inputs, spinner,
+  indicador de conexión) y las moléculas (tarjeta estadística, campo de
+  formulario, alerta, buscador) se agrupan aquí como bloques de marcado en
+  vez de repartirse en archivos .html individuales. Con html/template, cada
+  archivo cargado por ParseGlob debe registrar nombres de plantilla únicos;
+  trocear cada átomo en su propio archivo obligaría a nombrarlos todos y
+  eleva el riesgo de colisiones sin ganar reutilización real, porque ningún
+  átomo se reutiliza fuera de esta página. Los organismos sí están separados
+  visualmente por <section>/<aside>/<header> con nombres de clase claros
+  (sidebar, topbar, orders-table, order-details) para que la correspondencia
+  con el CSS y el JavaScript sea fácil de explicar en la defensa oral.
+*/}}
+{{define "dashboard.html"}}<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Orders Control</title>
+  <link rel="stylesheet" href="/assets/css/variables.css">
+  <link rel="stylesheet" href="/assets/css/base.css">
+  <link rel="stylesheet" href="/assets/css/layout.css">
+  <link rel="stylesheet" href="/assets/css/components.css">
+  <link rel="stylesheet" href="/assets/css/dashboard.css">
+</head>
+<body data-refresh-seconds="{{.RefreshSeconds}}" data-orders-api-url="{{.OrdersAPIURL}}">
+  <!-- Organismo: sidebar -->
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 7h18M3 12h18M3 17h18" stroke-linecap="round"/>
+        </svg>
+      </span>
+      <span class="brand-text">
+        <strong>Orders Control</strong>
+        <small>Sistema de gestión de pedidos</small>
+      </span>
+    </div>
+    <nav aria-label="Navegación principal">
+      <a class="nav-link active" href="#connection">Conexión</a>
+      <a class="nav-link" href="#stats">Estadísticas</a>
+      <a class="nav-link" href="#new-order">Registrar pedido</a>
+      <a class="nav-link" href="#orders">Pedidos</a>
+    </nav>
+    <div class="sidebar-foot">
+      <span class="conn-indicator" id="web-indicator" aria-hidden="true"></span>
+      <span>orders-web activo</span>
+    </div>
+  </aside>
+
+  <main>
+    <!-- Organismo: topbar -->
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">PEDIDOS / DASHBOARD</p>
+        <h1>Centro de control de pedidos</h1>
+        <p class="subtitle">orders-web consulta exclusivamente a orders-api; no almacena pedidos propios.</p>
+      </div>
+      <button class="button secondary" id="btn-check-connection" type="button">
+        <span aria-hidden="true">&#8635;</span> Verificar conexión
+      </button>
+    </header>
+
+    <!-- Organismo: panel de conexión con orders-api -->
+    <section class="panel" id="connection" aria-labelledby="connection-title">
+      <div class="panel-header">
+        <div>
+          <h2 id="connection-title">Estado de conexión</h2>
+          <p>Origen de datos: <code id="api-url-label">{{.OrdersAPIURL}}</code></p>
+        </div>
+      </div>
+      <div class="connection-grid">
+        <article class="conn-card">
+          <span class="conn-indicator" id="web-status-dot" aria-hidden="true"></span>
+          <div>
+            <strong>orders-web</strong>
+            <p>Interfaz activa en este servidor</p>
+          </div>
+        </article>
+        <article class="conn-card">
+          <span class="conn-indicator unknown" id="api-status-dot" aria-hidden="true"></span>
+          <div>
+            <strong id="api-status-text">Comprobando orders-api…</strong>
+            <p>Última comprobación: <span id="api-last-check">—</span></p>
+          </div>
+        </article>
+      </div>
+      <div id="api-offline-banner" class="alert danger hidden" role="alert">
+        <strong>orders-api no está disponible.</strong>
+        <span>El registro y las acciones sobre pedidos están deshabilitados hasta reconectar.</span>
+      </div>
+    </section>
+
+    <!-- Organismo: panel de estadísticas -->
+    <section class="panel" id="stats" aria-labelledby="stats-title">
+      <div class="panel-header">
+        <div>
+          <h2 id="stats-title">Estadísticas</h2>
+          <p>Se actualizan junto con la lista de pedidos.</p>
+        </div>
+        <span class="spinner hidden" id="stats-spinner" aria-label="Cargando estadísticas"></span>
+      </div>
+      <div class="stats-grid" id="stats-grid">
+        <article class="stat-card"><span>Total</span><strong data-stat="total_orders">—</strong></article>
+        <article class="stat-card warning"><span>Pendientes</span><strong data-stat="pending">—</strong></article>
+        <article class="stat-card info"><span>En proceso</span><strong data-stat="processing">—</strong></article>
+        <article class="stat-card success"><span>Completados</span><strong data-stat="completed">—</strong></article>
+        <article class="stat-card danger"><span>Cancelados</span><strong data-stat="cancelled">—</strong></article>
+        <article class="stat-card"><span>Unidades vendidas</span><strong data-stat="total_units">—</strong></article>
+        <article class="stat-card accent"><span>Importe total</span><strong data-stat="total_amount">—</strong></article>
+      </div>
+    </section>
+
+    <!-- Organismo: formulario de pedido -->
+    <section class="panel" id="new-order" aria-labelledby="new-order-title">
+      <div class="panel-header">
+        <div>
+          <h2 id="new-order-title">Registrar pedido</h2>
+          <p>orders-api valida y calcula el total real; aquí solo se estima.</p>
+        </div>
+      </div>
+      <form id="order-form" novalidate>
+        <div class="form-grid">
+          <div class="field">
+            <label for="f-customer">Cliente</label>
+            <input id="f-customer" name="customer" type="text" maxlength="200" required autocomplete="off">
+            <small class="field-error" id="err-customer" role="alert"></small>
+          </div>
+          <div class="field">
+            <label for="f-product">Producto</label>
+            <input id="f-product" name="product" type="text" maxlength="200" required autocomplete="off">
+            <small class="field-error" id="err-product" role="alert"></small>
+          </div>
+          <div class="field">
+            <label for="f-quantity">Cantidad</label>
+            <input id="f-quantity" name="quantity" type="number" min="1" step="1" required>
+            <small class="field-error" id="err-quantity" role="alert"></small>
+          </div>
+          <div class="field">
+            <label for="f-unit-price">Precio unitario</label>
+            <input id="f-unit-price" name="unit_price" type="number" min="0.01" step="0.01" required>
+            <small class="field-error" id="err-unit-price" role="alert"></small>
+          </div>
+        </div>
+        <div class="form-footer">
+          <p class="estimate">Total estimado: <strong id="estimate-total">$0.00</strong></p>
+          <div class="button-group">
+            <button class="button ghost" type="reset" id="btn-reset-form">Limpiar</button>
+            <button class="button primary" type="submit" id="btn-submit-form">Registrar pedido</button>
+          </div>
+        </div>
+      </form>
+    </section>
+
+    <!-- Organismo: buscador y filtros + tabla de pedidos -->
+    <section class="panel" id="orders" aria-labelledby="orders-title">
+      <div class="panel-header">
+        <div>
+          <h2 id="orders-title">Pedidos</h2>
+          <p>Los filtros se aplican sobre los pedidos ya recuperados.</p>
+        </div>
+        <span class="spinner hidden" id="orders-spinner" aria-label="Cargando pedidos"></span>
+      </div>
+      <div class="toolbar" role="search">
+        <div class="field inline">
+          <label for="f-search-customer">Cliente</label>
+          <input id="f-search-customer" type="search" placeholder="Buscar por cliente" aria-label="Buscar por cliente">
+        </div>
+        <div class="field inline">
+          <label for="f-search-product">Producto</label>
+          <input id="f-search-product" type="search" placeholder="Buscar por producto" aria-label="Buscar por producto">
+        </div>
+        <div class="field inline">
+          <label for="f-filter-status">Estado</label>
+          <select id="f-filter-status" aria-label="Filtrar por estado">
+            <option value="">Todos</option>
+            {{range .StatusOptions}}<option value="{{.}}">{{.}}</option>{{end}}
+          </select>
+        </div>
+        <div class="field inline">
+          <label for="f-sort">Ordenar por</label>
+          <select id="f-sort" aria-label="Ordenar pedidos">
+            <option value="date_desc">Fecha (recientes)</option>
+            <option value="date_asc">Fecha (antiguos)</option>
+            <option value="total_desc">Total (mayor)</option>
+            <option value="total_asc">Total (menor)</option>
+          </select>
+        </div>
+        <button class="button ghost small" id="btn-clear-filters" type="button">Limpiar filtros</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th><th>Cliente</th><th>Producto</th><th>Cantidad</th>
+              <th>Precio unitario</th><th>Total</th><th>Estado</th><th>Fecha</th><th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="orders-table-body">
+            <tr><td colspan="9" class="empty">Cargando pedidos…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- Organismo: modal de detalle -->
+  <dialog id="order-detail-modal" aria-labelledby="detail-title">
+    <form method="dialog" class="modal-content">
+      <div class="modal-header">
+        <h2 id="detail-title">Detalle del pedido</h2>
+        <button class="button ghost small" type="submit" aria-label="Cerrar detalle">✕</button>
+      </div>
+      <dl class="detail-list" id="order-detail-body"></dl>
+      <div class="modal-footer">
+        <label for="detail-status-select">Cambiar estado</label>
+        <select id="detail-status-select">
+          {{range .StatusOptions}}<option value="{{.}}">{{.}}</option>{{end}}
+        </select>
+        <button class="button primary" type="button" id="btn-apply-status">Aplicar estado</button>
+        <button class="button danger" type="button" id="btn-delete-order">Eliminar pedido</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Organismo: modal de confirmación -->
+  <dialog id="confirm-modal" aria-labelledby="confirm-title">
+    <form method="dialog" class="modal-content small">
+      <div class="modal-header">
+        <h2 id="confirm-title">Confirmar acción</h2>
+      </div>
+      <p id="confirm-message"></p>
+      <div class="modal-footer">
+        <button class="button ghost" type="submit" value="cancel" id="btn-confirm-cancel">Cancelar</button>
+        <button class="button danger" type="submit" value="confirm" id="btn-confirm-accept">Confirmar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+
+  <script type="module" src="/assets/js/dashboard.js"></script>
+</body>
+</html>{{end}}
