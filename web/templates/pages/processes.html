@@ -1,0 +1,12 @@
+{{define "processes.html"}}<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"><title>Job Scheduler · Procesos</title>
+<link rel="stylesheet" href="/static/css/variables.css"><link rel="stylesheet" href="/static/css/base.css"><link rel="stylesheet" href="/static/css/components.css"><link rel="stylesheet" href="/static/css/dashboard.css"></head>
+<body>
+{{template "sidebar" .}}
+<main>
+{{template "topbar" .}}
+<section class="panel" id="processes" aria-labelledby="processes-title"><div class="panel-header"><div><h2 id="processes-title">Procesos supervisados</h2><p>Solo se pueden controlar jobs definidos en la configuración.</p></div><span class="loader hidden" id="jobs-loader" aria-label="Cargando"></span></div><div class="table-wrap"><table><thead><tr><th>Proceso</th><th>Estado</th><th>PID</th><th>Política</th><th>Reintentos</th><th>Tiempo activo</th><th>Último error</th><th>Acciones</th></tr></thead><tbody id="jobs-table"><tr><td colspan="8" class="empty">Cargando procesos…</td></tr></tbody></table></div></section>
+</main>
+{{template "toasts" .}}
+<script type="module" src="/static/js/dashboard.js"></script>
+</body></html>{{end}}

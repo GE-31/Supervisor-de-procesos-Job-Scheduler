@@ -1,0 +1,12 @@
+{{define "overview.html"}}<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"><title>Job Scheduler · Resumen</title>
+<link rel="stylesheet" href="/static/css/variables.css"><link rel="stylesheet" href="/static/css/base.css"><link rel="stylesheet" href="/static/css/components.css"><link rel="stylesheet" href="/static/css/dashboard.css"></head>
+<body>
+{{template "sidebar" .}}
+<main>
+{{template "topbar" .}}
+<section id="overview" aria-labelledby="overview-title"><div class="section-heading"><div><h2 id="overview-title">Estado general</h2><p>Actualización automática cada 2 segundos</p></div><span id="last-update" class="muted">Esperando datos…</span></div><div class="stats" id="stats"><article class="stat"><span>Total</span><strong data-stat="total">—</strong></article><article class="stat success"><span>Ejecutándose</span><strong data-stat="running">—</strong></article><article class="stat warning"><span>Backoff</span><strong data-stat="backoff">—</strong></article><article class="stat"><span>Detenidos</span><strong data-stat="stopped">—</strong></article><article class="stat danger"><span>Fallidos</span><strong data-stat="failed">—</strong></article><article class="stat accent"><span>Reinicios</span><strong data-stat="total_restarts">—</strong></article></div></section>
+</main>
+{{template "toasts" .}}
+<script type="module" src="/static/js/dashboard.js"></script>
+</body></html>{{end}}

@@ -1,0 +1,12 @@
+{{define "logs.html"}}<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"><title>Job Scheduler · Logs</title>
+<link rel="stylesheet" href="/static/css/variables.css"><link rel="stylesheet" href="/static/css/base.css"><link rel="stylesheet" href="/static/css/components.css"><link rel="stylesheet" href="/static/css/dashboard.css"></head>
+<body>
+{{template "sidebar" .}}
+<main>
+{{template "topbar" .}}
+<section class="panel logs-panel" id="logs" aria-labelledby="logs-title"><div class="panel-header logs-tools"><div><h2 id="logs-title">Consola de logs</h2><p>Últimas líneas de stdout y stderr.</p></div><div class="toolbar"><select id="log-job" aria-label="Seleccionar proceso"><option value="">Selecciona un proceso</option></select><label class="check"><input id="auto-logs" type="checkbox" checked> Auto</label><label class="check"><input id="auto-scroll" type="checkbox" checked> Scroll</label><button class="button secondary small" id="refresh-logs" type="button">Actualizar</button><button class="button ghost small" id="clear-logs" type="button">Limpiar vista</button></div></div><div class="console" id="log-console" role="log" aria-live="polite"><p class="console-empty">Selecciona un proceso para visualizar su actividad.</p></div></section>
+</main>
+{{template "toasts" .}}
+<script type="module" src="/static/js/dashboard.js"></script>
+</body></html>{{end}}
