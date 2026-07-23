@@ -10,7 +10,24 @@ import (
 	"github.com/GE-31/Supervisor-de-procesos-Job-Scheduler/internal/supervisor"
 )
 
-func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
+// pageData es el valor pasado a cada una de las tres páginas del dashboard.
+// Active identifica cuál queda resaltada en el sidebar ("overview",
+// "processes" o "logs").
+type pageData struct {
+	Active   string
+	Eyebrow  string
+	Title    string
+	Subtitle string
+}
+
+func (s *Server) renderPage(w http.ResponseWriter, tmplName string, data pageData) {
+	if err := s.template.ExecuteTemplate(w, tmplName, data); err != nil {
+		s.logger.Printf("render %s: %v", tmplName, err)
+	}
+}
+
+// handleOverview sirve GET / : contadores agregados de todos los procesos.
+func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
 		writeError(w, http.StatusNotFound, "not_found", "Recurso no encontrado")
 		return
@@ -19,9 +36,40 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		methodNotAllowed(w, "GET")
 		return
 	}
-	if err := s.template.ExecuteTemplate(w, "dashboard.html", nil); err != nil {
-		s.logger.Printf("render dashboard: %v", err)
+	s.renderPage(w, "overview.html", pageData{
+		Active:   "overview",
+		Eyebrow:  "OPERACIONES / RESUMEN",
+		Title:    "Estado general",
+		Subtitle: "Contadores agregados de todos los procesos supervisados.",
+	})
+}
+
+// handleProcesses sirve GET /processes : tabla de procesos supervisados.
+func (s *Server) handleProcesses(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w, "GET")
+		return
 	}
+	s.renderPage(w, "processes.html", pageData{
+		Active:   "processes",
+		Eyebrow:  "OPERACIONES / PROCESOS",
+		Title:    "Procesos supervisados",
+		Subtitle: "Solo se pueden controlar jobs definidos en la configuración.",
+	})
+}
+
+// handleLogsPage sirve GET /logs : consola de logs por proceso.
+func (s *Server) handleLogsPage(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w, "GET")
+		return
+	}
+	s.renderPage(w, "logs.html", pageData{
+		Active:   "logs",
+		Eyebrow:  "OPERACIONES / LOGS",
+		Title:    "Consola de logs",
+		Subtitle: "Últimas líneas de stdout y stderr por proceso.",
+	})
 }
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -35,22 +83,7 @@ func (s *Server) handleSummary(w http.ResponseWriter, r *http.Request) {
 		methodNotAllowed(w, "GET")
 		return
 	}
-	summary := dto.Summary{}
-	for _, j := range s.controller.ListJobs() {
-		summary.Total++
-		summary.TotalRestarts += j.Retries
-		switch j.State {
-		case supervisor.StateRunning:
-			summary.Running++
-		case supervisor.StateBackoff:
-			summary.Backoff++
-		case supervisor.StateStopped:
-			summary.Stopped++
-		case supervisor.StateFailed:
-			summary.Failed++
-		}
-	}
-	writeJSON(w, http.StatusOK, summary)
+	writeJSON(w, http.StatusOK, dto.SummaryFromSnapshots(s.controller.ListJobs()))
 }
 func (s *Server) handleJobs(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {

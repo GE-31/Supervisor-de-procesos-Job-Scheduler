@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/GE-31/Supervisor-de-procesos-Job-Scheduler/internal/api/websocket"
 )
 
 func (s *Server) routes() http.Handler {
@@ -13,7 +15,15 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("/api/summary", s.handleSummary)
 	mux.HandleFunc("/api/jobs", s.handleJobs)
 	mux.HandleFunc("/api/jobs/", s.handleJob)
-	mux.HandleFunc("/", s.handleDashboard)
+	mux.HandleFunc("/processes", s.handleProcesses)
+	mux.HandleFunc("/logs", s.handleLogsPage)
+	mux.HandleFunc("/", s.handleOverview)
+	if s.hub != nil {
+		// La solicitud de upgrade en sí es un GET sin cuerpo, así que
+		// MaxBytesHandler no le afecta; una vez aceptada, la conexión
+		// queda "hijacked" y ya no pasa por ningún middleware HTTP.
+		mux.Handle("/ws", websocket.Handler(s.hub, s.logger))
+	}
 	return s.recovery(s.accessLog(http.MaxBytesHandler(mux, 1<<20)))
 }
 func (s *Server) accessLog(next http.Handler) http.Handler {

@@ -5,10 +5,14 @@ import (
 	"encoding/json"
 	joblog "github.com/GE-31/Supervisor-de-procesos-Job-Scheduler/internal/logging"
 	"github.com/GE-31/Supervisor-de-procesos-Job-Scheduler/internal/supervisor"
+	"html/template"
 	"io"
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 	"time"
 )
@@ -54,6 +58,36 @@ func testHandler() (*fakeController, http.Handler) {
 	c := &fakeController{job: supervisor.Snapshot{Name: "demo", Command: "echo", State: supervisor.StateRunning, PID: 42, RestartPolicy: "never", StartedAt: time.Now()}}
 	s := &Server{controller: c, logs: fakeLogs{}, logger: log.New(io.Discard, "", 0)}
 	return c, s.routes()
+}
+
+// repoRoot localiza la raíz del repositorio a partir de este archivo, para
+// que template.ParseGlob("web/templates/...") resuelva igual que en
+// producción, donde el binario se ejecuta desde la raíz.
+func repoRoot(t *testing.T) string {
+	t.Helper()
+	_, thisFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("no se pudo determinar la ruta del archivo de prueba")
+	}
+	return filepath.Join(filepath.Dir(thisFile), "..", "..")
+}
+
+// testHandlerWithPages construye un Server con las plantillas reales
+// cargadas, para las pruebas que sí ejercitan las páginas HTML.
+func testHandlerWithPages(t *testing.T) http.Handler {
+	t.Helper()
+	t.Chdir(repoRoot(t))
+	tmpl, err := template.ParseGlob("web/templates/layouts/*.html")
+	if err != nil {
+		t.Fatalf("cargar layouts: %v", err)
+	}
+	tmpl, err = tmpl.ParseGlob("web/templates/pages/*.html")
+	if err != nil {
+		t.Fatalf("cargar pages: %v", err)
+	}
+	c := &fakeController{job: supervisor.Snapshot{Name: "demo", Command: "echo", State: supervisor.StateRunning, PID: 42, RestartPolicy: "never", StartedAt: time.Now()}}
+	s := &Server{controller: c, logs: fakeLogs{}, template: tmpl, logger: log.New(io.Discard, "", 0)}
+	return s.routes()
 }
 func request(t *testing.T, h http.Handler, method, path string) *httptest.ResponseRecorder {
 	t.Helper()
@@ -113,5 +147,68 @@ func TestLogsAndInvalidLimit(t *testing.T) {
 	}
 	if w := request(t, h, "GET", "/api/jobs/demo/logs?limit=5000"); w.Code != 400 {
 		t.Fatalf("limit=%d", w.Code)
+	}
+}
+
+// ---- páginas del dashboard ----
+//
+// El dashboard dejó de ser una sola página con secciones controladas por el
+// hash de la URL: ahora son tres rutas HTTP reales, cada una con su propia
+// plantilla. Estas pruebas comprueban que cada una renderiza su propio
+// contenido, que no se mezclan entre sí, y que el enlace activo del sidebar
+// cambia según la página.
+
+func TestOverviewPageRenders(t *testing.T) {
+	h := testHandlerWithPages(t)
+	w := request(t, h, "GET", "/")
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", w.Code, w.Body.String())
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, `id="stats"`) {
+		t.Error("la página de resumen no contiene el panel de estadísticas")
+	}
+	if strings.Contains(body, `id="jobs-table"`) || strings.Contains(body, `id="log-console"`) {
+		t.Error("la página de resumen no debería incluir la tabla de procesos ni la consola de logs")
+	}
+	if !strings.Contains(body, `href="/">Resumen`) {
+		t.Error("el enlace de Resumen debería quedar marcado como activo")
+	}
+}
+
+func TestProcessesPageRenders(t *testing.T) {
+	h := testHandlerWithPages(t)
+	w := request(t, h, "GET", "/processes")
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", w.Code, w.Body.String())
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, `id="jobs-table"`) {
+		t.Error("la página de procesos no contiene la tabla")
+	}
+	if strings.Contains(body, `id="stats"`) || strings.Contains(body, `id="log-console"`) {
+		t.Error("la página de procesos no debería incluir el resumen ni la consola de logs")
+	}
+}
+
+func TestLogsPageRenders(t *testing.T) {
+	h := testHandlerWithPages(t)
+	w := request(t, h, "GET", "/logs")
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", w.Code, w.Body.String())
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, `id="log-console"`) || !strings.Contains(body, `id="log-job"`) {
+		t.Error("la página de logs no contiene la consola ni el selector de proceso")
+	}
+	if strings.Contains(body, `id="stats"`) || strings.Contains(body, `id="jobs-table"`) {
+		t.Error("la página de logs no debería incluir el resumen ni la tabla de procesos")
+	}
+}
+
+func TestOverviewPageMethodNotAllowed(t *testing.T) {
+	h := testHandlerWithPages(t)
+	if w := request(t, h, "POST", "/"); w.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("status = %d", w.Code)
 	}
 }

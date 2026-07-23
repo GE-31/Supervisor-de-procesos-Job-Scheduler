@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/GE-31/Supervisor-de-procesos-Job-Scheduler/internal/api/websocket"
 	"github.com/GE-31/Supervisor-de-procesos-Job-Scheduler/internal/logging"
 	"github.com/GE-31/Supervisor-de-procesos-Job-Scheduler/internal/supervisor"
 )
@@ -31,17 +32,24 @@ type Server struct {
 	logs       LogReader
 	template   *template.Template
 	logger     *log.Logger
+	hub        *websocket.Hub
 }
 
-func NewServer(address string, controller JobController, logs LogReader, logger *log.Logger) (*Server, error) {
+// NewServer construye el servidor HTTP del dashboard. hub puede ser nil: en
+// ese caso simplemente no se registra la ruta /ws (útil para pruebas que no
+// necesitan tiempo real).
+func NewServer(address string, controller JobController, logs LogReader, logger *log.Logger, hub *websocket.Hub) (*Server, error) {
 	if logger == nil {
 		logger = log.Default()
 	}
-	tmpl, err := template.ParseGlob("web/templates/*.html")
+	tmpl, err := template.ParseGlob("web/templates/layouts/*.html")
+	if err == nil {
+		tmpl, err = tmpl.ParseGlob("web/templates/pages/*.html")
+	}
 	if err != nil {
 		return nil, fmt.Errorf("cargar dashboard: %w", err)
 	}
-	s := &Server{controller: controller, logs: logs, template: tmpl, logger: logger}
+	s := &Server{controller: controller, logs: logs, template: tmpl, logger: logger, hub: hub}
 	s.http = &http.Server{Addr: address, Handler: s.routes(), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 1 << 20}
 	return s, nil
 }

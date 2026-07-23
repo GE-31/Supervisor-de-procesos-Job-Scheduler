@@ -43,3 +43,25 @@ type Summary struct {
 	Failed        int `json:"failed"`
 	TotalRestarts int `json:"total_restarts"`
 }
+
+// SummaryFromSnapshots agrega los contadores a partir de la lista completa
+// de jobs. La usan tanto el handler HTTP /api/summary como el hub de
+// WebSocket, para no calcular el resumen de dos formas distintas.
+func SummaryFromSnapshots(snaps []supervisor.Snapshot) Summary {
+	summary := Summary{}
+	for _, j := range snaps {
+		summary.Total++
+		summary.TotalRestarts += j.Retries
+		switch j.State {
+		case supervisor.StateRunning:
+			summary.Running++
+		case supervisor.StateBackoff:
+			summary.Backoff++
+		case supervisor.StateStopped:
+			summary.Stopped++
+		case supervisor.StateFailed:
+			summary.Failed++
+		}
+	}
+	return summary
+}
