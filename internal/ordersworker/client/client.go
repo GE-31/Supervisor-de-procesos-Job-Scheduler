@@ -17,16 +17,21 @@ import (
 const maxResponseSize = 2 << 20
 
 type Client struct {
-	base string
-	http *http.Client
+	base  string
+	http  *http.Client
+	token string
 }
 
-func New(base string, timeout time.Duration) (*Client, error) {
+func New(base string, timeout time.Duration, tokens ...string) (*Client, error) {
 	u, err := url.ParseRequestURI(base)
 	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
 		return nil, fmt.Errorf("URL de orders-api inválida")
 	}
-	return &Client{base: strings.TrimRight(base, "/"), http: &http.Client{Timeout: timeout}}, nil
+	token := ""
+	if len(tokens) > 0 {
+		token = tokens[0]
+	}
+	return &Client{base: strings.TrimRight(base, "/"), http: &http.Client{Timeout: timeout}, token: token}, nil
 }
 func (c *Client) Health(ctx context.Context) error {
 	var response map[string]any
@@ -59,6 +64,9 @@ func (c *Client) do(ctx context.Context, method, path string, body any, result a
 		req.Header.Set("Content-Type", "application/json")
 	}
 	req.Header.Set("Accept", "application/json")
+	if c.token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.token)
+	}
 	resp, err := c.http.Do(req)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
